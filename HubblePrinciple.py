@@ -1,4 +1,3 @@
-import math
 import matplotlib.pyplot as plt
 import sys
 from Core import RK4FirstOrder
@@ -45,21 +44,21 @@ class StaticUniverse(Universe):
     def Hubble(self, Time):
         return self.HubbleConstantSiUnits
         
-class LinearIncreaseWithTimeUniverse(Universe):
+class LinearDecreaseWithTimeUniverse(Universe):
     def __init__(self):
-        Universe.__init__(self, "Hubble parameter increasing linearly with time")
+        Universe.__init__(self, "Hubble parameter decreasing linearly with time")
 
-        # Assume that the Hubble constant has increased from 1km/Mpc at the big bang to its current value
+        # Assume that the Hubble constant has decreased from at the big bang to its current value
         # in a linear manner.
         HubbleConstantNow = 70e3
         HubbleConstantSiUnitsNow = hubbleToSi(HubbleConstantNow)
-        self.HubbleConstantTimeZero = hubbleToSi(1e3)
+        self.HubbleConstantTimeZero = hubbleToSi(speedOfLight)
         TimeNow = 13.8e9
         TimeNowSeconds = yearsToSeconds(TimeNow)
-        self.HubbleConstantRateOfIncrease = (HubbleConstantSiUnitsNow - self.HubbleConstantTimeZero) / TimeNowSeconds
+        self.HubbleConstantRateOfChange = (HubbleConstantSiUnitsNow - self.HubbleConstantTimeZero) / TimeNowSeconds
 
     def Hubble(self, Time):
-        return self.HubbleConstantRateOfIncrease * Time + self.HubbleConstantTimeZero
+        return self.HubbleConstantRateOfChange * Time + self.HubbleConstantTimeZero
 
 # An object that is moving relative to another one.  In reality we can define any object as stationary.
 #
@@ -77,7 +76,7 @@ class MovingObject():
 
 # A dictionary of universes in case anyone wants to specify it as a command line argument.
 #
-universes = {'static' : StaticUniverse(), 'linear' : LinearIncreaseWithTimeUniverse()}
+universes = {'static' : StaticUniverse(), 'linear' : LinearDecreaseWithTimeUniverse()}
 
 def SimulateConstantVelocityTravel(InitialDisplacement, hubbleModel, testNumber):
     speed = speedOfLight
@@ -92,42 +91,40 @@ def SimulateConstantVelocityTravel(InitialDisplacement, hubbleModel, testNumber)
     time = 0
     universe = universes[hubbleModel]
 
-    # Simulate the motion of light towards a destination and the motion of the starting
-    # point away from the light.  Note the opposite signs for velocity.
+    # Obviously this doesn't actually define the size of the observable universe, but it seems
+    # like a reasonable test of whether the simulation will ever finish in most cases.
     #
-    movingObject = MovingObject(InitialDisplacement, speedOfLight, universe)
-    startingPoint = MovingObject(0, -speedOfLight, universe)
+    if InitialDisplacement * universe.Hubble(0) > speedOfLight:
+        print("Distance outside observable universe") 
+    else:
+        # Simulate the motion of light towards a destination and the motion of the starting
+        # point away from the light.  Note the opposite signs for velocity.
+        #
+        movingObject = MovingObject(InitialDisplacement, speedOfLight, universe)
+        startingPoint = MovingObject(0, -speedOfLight, universe)
 
-    # Run the simulation until either we get to the destination point or the destination point
-    # starts moving away.  This might not work for more exotic universes where the destination
-    # could move away for a bit and then turn round, but its a good way of making sure the
-    # simulation doesn't run forever.
-    #
-    terminationCondition = False
-    while terminationCondition == False:
-        movingObject.Update(TimeStep, time)
-        startingPoint.Update(TimeStep, time)
-        Timestamps.append(secondsToYears(time))    
-        time += TimeStep
-        Displacements.append(metresToMpc(movingObject.Displacement))
-        DistancesFromStart.append(metresToMpc(startingPoint.Displacement))
-        StartAndEndSeparation.append(metresToMpc(movingObject.Displacement) + metresToMpc(startingPoint.Displacement))
-        if len(Displacements) > 1:
-            terminationCondition = Displacements[-2] < Displacements[-1]
-        if movingObject.Displacement < 0:
-            terminationCondition = True
+        # Run the simulation until we get to where we're going.
+        #
+        while movingObject.Displacement > 0:
+            movingObject.Update(TimeStep, time)
+            startingPoint.Update(TimeStep, time)
+            Timestamps.append(secondsToYears(time))    
+            time += TimeStep
+            Displacements.append(metresToMpc(movingObject.Displacement))
+            DistancesFromStart.append(metresToMpc(startingPoint.Displacement))
+            StartAndEndSeparation.append(metresToMpc(movingObject.Displacement) + metresToMpc(startingPoint.Displacement))
 
-    plt.figure(testNumber)
-    plt.plot(Timestamps, Displacements, label='distance to destination')
+        plt.figure(testNumber)
+        plt.plot(Timestamps, Displacements, label='distance to destination')
 
-    # Plotting start and end point separation makes the graphs a bit more intuitive.
-    #
-    plt.plot(Timestamps, StartAndEndSeparation, label='distance from start to end')
-    plt.xlabel('time (years)')
-    plt.ylabel('displacement (Mpc)')
-    plt.title(universe.name)
-    plt.legend()
-    plt.show()
+        # Plotting start and end point separation makes the graphs a bit more intuitive.
+        #
+        plt.plot(Timestamps, StartAndEndSeparation, label='distance from start to end')
+        plt.xlabel('time (years)')
+        plt.ylabel('displacement (Mpc)')
+        plt.title(universe.name)
+        plt.legend()
+        plt.show()
 
 def main(argv):
     distance = float(argv[1])
