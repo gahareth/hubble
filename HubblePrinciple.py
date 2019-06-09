@@ -1,4 +1,3 @@
-
 import math
 import matplotlib.pyplot as plt
 import sys
@@ -6,6 +5,8 @@ from Core import RK4FirstOrder
 from Core import Euler 
 from Core import PhysicalQuantity
 
+# Definitions of various constants
+#
 metresInParsec = 3.08567758149137e16
 parsecsInMpc = 1e6
 distanceMpc = 1e2
@@ -26,6 +27,8 @@ def yearsToSeconds(years):
 def secondsToYears(seconds):
     return seconds / (60 * 60 * 24 * 365.25)
 
+# A generic universe that defines the Hubble parameter as a function of time.
+#
 class Universe():
     def __init__(self, name):
         self.name = name
@@ -45,6 +48,9 @@ class StaticUniverse(Universe):
 class LinearIncreaseWithTimeUniverse(Universe):
     def __init__(self):
         Universe.__init__(self, "Hubble parameter increasing linearly with time")
+
+        # Assume that the Hubble constant has increased from 1km/Mpc at the big bang to its current value
+        # in a linear manner.
         HubbleConstantNow = 70e3
         HubbleConstantSiUnitsNow = hubbleToSi(HubbleConstantNow)
         self.HubbleConstantTimeZero = hubbleToSi(1e3)
@@ -55,6 +61,8 @@ class LinearIncreaseWithTimeUniverse(Universe):
     def Hubble(self, Time):
         return self.HubbleConstantRateOfIncrease * Time + self.HubbleConstantTimeZero
 
+# An object that is moving relative to another one.  In reality we can define any object as stationary.
+#
 class MovingObject():
     def __init__(self, initialDisplacement, initialVelocity, universe):
         self.Displacement = initialDisplacement
@@ -67,6 +75,8 @@ class MovingObject():
     def Update(self, TimeStep, Time):
         self.Displacement = RK4FirstOrder(self.Displacement, TimeStep, lambda time, Displacement: self.RateOfChangeOfDisplacement(time, Displacement), Time) 
 
+# A dictionary of universes in case anyone wants to specify it as a command line argument.
+#
 universes = {'static' : StaticUniverse(), 'linear' : LinearIncreaseWithTimeUniverse()}
 
 def SimulateConstantVelocityTravel(InitialDisplacement, hubbleModel, testNumber):
@@ -81,8 +91,18 @@ def SimulateConstantVelocityTravel(InitialDisplacement, hubbleModel, testNumber)
 
     time = 0
     universe = universes[hubbleModel]
+
+    # Simulate the motion of light towards a destination and the motion of the starting
+    # point away from the light.  Note the opposite signs for velocity.
+    #
     movingObject = MovingObject(InitialDisplacement, speedOfLight, universe)
     startingPoint = MovingObject(0, -speedOfLight, universe)
+
+    # Run the simulation until either we get to the destination point or the destination point
+    # starts moving away.  This might not work for more exotic universes where the destination
+    # could move away for a bit and then turn round, but its a good way of making sure the
+    # simulation doesn't run forever.
+    #
     terminationCondition = False
     while terminationCondition == False:
         movingObject.Update(TimeStep, time)
@@ -99,7 +119,9 @@ def SimulateConstantVelocityTravel(InitialDisplacement, hubbleModel, testNumber)
 
     plt.figure(testNumber)
     plt.plot(Timestamps, Displacements, label='distance to destination')
-    # plt.plot(Timestamps, DistancesFromStart, label='distance from start')
+
+    # Plotting start and end point separation makes the graphs a bit more intuitive.
+    #
     plt.plot(Timestamps, StartAndEndSeparation, label='distance from start to end')
     plt.xlabel('time (years)')
     plt.ylabel('displacement (Mpc)')
@@ -111,6 +133,9 @@ def main(argv):
     distance = float(argv[1])
     InitialDisplacement = MpcToMetres(distance) 
     
+    # Run the simulation for all universes.  This could just iterate through a list, but I made it a
+    # dictionary just in case it was useful to specify it by string.
+    #
     testNumber = 1
     SimulateConstantVelocityTravel(InitialDisplacement, 'static', testNumber)
     testNumber += 1
